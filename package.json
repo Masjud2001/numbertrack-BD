@@ -1,0 +1,12 @@
+{
+  "name": "phone-ip-tracker",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "node-fetch": "^3.3.2",
+    "geoip-lite": "^1.4.10",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0"
+  }
+}
