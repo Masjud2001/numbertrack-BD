@@ -8,16 +8,8 @@ const helmet = require('helmet');
 
 const app = express();
 app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrcAttr: ["'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "https:", "http:"]
-        }
-    }
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
 }));
 app.use(cors());
 app.use(express.json());
