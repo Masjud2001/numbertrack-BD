@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BD Phone & IP Tracker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { 
+            background: white; 
+            border-radius: 15px; 
+            padding: 30px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        .input-group { margin-bottom: 20px; }
+        input { 
+            width: 100%; padding: 15px; border: 2px solid #e1e5e9; 
+            border-radius: 10px; font-size: 16px; transition: all 0.3s;
+        }
+        input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        button { 
+            width: 100%; padding: 15px; background: #667eea; 
+            color: white; border: none; border-radius: 10px; 
+            font-size: 16px; cursor: pointer; transition: all 0.3s;
+        }
+        button:hover { background: #5a67d8; transform: translateY(-2px); }
+        .results { 
+            background: #f8f9ff; border-radius: 10px; padding: 20px; 
+            margin-top: 20px; border-left: 5px solid #667eea;
+        }
+        .result-item { display: flex; justify-content: space-between; margin: 10px 0; padding: 10px; background: white; border-radius: 8px; }
+        .bd-flag { background: #00a651; color: white; padding: 5px 10px; border-radius: 20px; font-size: 12px; }
+        .error { background: #fee; color: #c33; border-left-color: #c33; }
+        #map { height: 300px; margin-top: 20px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🇧🇩 Bangladesh Phone & IP Tracker</h1>
+        
+        <!-- Phone Tracker -->
+        <div class="card">
+            <h3>📱 Phone Number Tracker</h3>
+            <div class="input-group">
+                <input type="tel" id="phoneInput" placeholder="+88017xxxxxxxxx or 017xxxxxxxxx" maxlength="14">
+                <button onclick="tracePhone()">Trace Phone</button>
+            </div>
+            <div id="phoneResults"></div>
+        </div>
+
+        <!-- IP Tracker -->
+        <div class="card">
+            <h3>🌐 IP Geolocation</h3>
+            <div class="input-group">
+                <input type="text" id="ipInput" placeholder="Enter IP address or leave blank for your IP">
+                <button onclick="traceIp()">Trace IP</button>
+                <button onclick="getMyIp()" style="background: #48bb78; margin-left: 10px; width: auto; padding: 15px 20px;">My IP</button>
+            </div>
+            <div id="ipResults"></div>
+        </div>
+    </div>
+
+    <script>
+        async function tracePhone() {
+            const phone = document.getElementById('phoneInput').value;
+            const results = document.getElementById('phoneResults');
+            
+            if (!phone) return results.innerHTML = '<div class="results error">Enter a phone number</div>';
+            
+            try {
+                const response = await fetch('/api/trace-phone', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({phone})
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    results.innerHTML = `<div class="results error">${data.error}</div>`;
+                } else {
+                    results.innerHTML = `
+                        <div class="results">
+                            <div class="result-item"><strong>Number:</strong> <span>${data.phone}</span></div>
+                            <div class="result-item"><strong>Carrier:</strong> <span style="color: #007bff;">${data.carrier}</span></div>
+                            <div class="result-item"><strong>Location:</strong> <span>${data.location}</span></div>
+                            <div class="result-item"><strong>Area:</strong> <span>${data.approximate_area}</span></div>
+                            <div class="bd-flag">Bangladesh Mobile</div>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                results.innerHTML = '<div class="results error">Trace failed</div>';
+            }
+        }
+
+        async function traceIp() {
+            const ip = document.getElementById('ipInput').value;
+            const results = document.getElementById('ipResults');
+            
+            try {
+                const response = await fetch('/api/trace-ip', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ip: ip || ''})
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    results.innerHTML = `<div class="results error">${data.error}</div>`;
+                } else {
+                    const flagClass = data.is_bangladesh ? 'bd-flag' : '';
+                    results.innerHTML = `
+                        <div class="results">
+                            <div class="result-item"><strong>IP:</strong> <span>${data.ip}</span></div>
+                            <div class="result-item"><strong>Country:</strong> <span>${data.country}</span></div>
+                            <div class="result-item"><strong>City:</strong> <span>${data.city || 'N/A'}</span></div>
+                            <div class="result-item"><strong>ISP:</strong> <span>${data.isp}</span></div>
+                            <div class="result-item"><strong>Lat/Lon:</strong> <span>${data.latitude}, ${data.longitude}</span></div>
+                            ${data.is_bangladesh ? '<div class="bd-flag">Bangladesh IP Confirmed</div>' : ''}
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                results.innerHTML = '<div class="results error">Trace failed</div>';
+            }
+        }
+
+        async function getMyIp() {
+            try {
+                const response = await fetch('/api/my-ip');
+                const data = await response.json();
+                document.getElementById('ipInput').value = data.ip;
+                traceIp();
+            } catch (e) {
+                alert('Failed to get your IP');
+            }
+        }
+
+        // Auto-focus
+        document.getElementById('phoneInput').focus();
+    </script>
+</body>
+</html>
