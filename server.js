@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const axios = require('axios');
 const geoip = require('geoip-lite');
 const cors = require('cors');
@@ -9,7 +10,7 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Bangladeshi mobile number carriers regex
 const BANGLADESH_MOBILE_PATTERNS = {
@@ -145,6 +146,10 @@ async function getIpDetails(ip) {
         return {};
     }
 }
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 if (require.main === module) {
     app.listen(3000, () => {
