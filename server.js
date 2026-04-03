@@ -7,7 +7,18 @@ const helmet = require('helmet');
 
 
 const app = express();
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrcAttr: ["'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https:", "http:"]
+        }
+    }
+}));
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
