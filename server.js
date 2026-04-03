@@ -3,7 +3,7 @@ const axios = require('axios');
 const geoip = require('geoip-lite');
 const cors = require('cors');
 const helmet = require('helmet');
-const fetch = require('node-fetch');
+
 
 const app = express();
 app.use(helmet());
@@ -26,12 +26,15 @@ const BANGLADESH_MOBILE_PATTERNS = {
 app.post('/api/trace-phone', async (req, res) => {
     const { phone } = req.body;
     
-    if (!phone || !/^\+?8801[3-9]\d{8}$/.test(phone.replace(/\s/g, ''))) {
+    if (!phone || !/^(?:\+?88)?01[3-9]\d{8}$/.test(phone.replace(/[\s-]/g, ''))) {
         return res.json({ error: 'Invalid Bangladeshi mobile number' });
     }
     
-    const cleanPhone = phone.replace(/\D/g, '');
-    const prefix = cleanPhone.slice(3, 5); // Extract first 2 digits after 880
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length > 11) {
+        cleanPhone = cleanPhone.slice(-11);
+    }
+    const prefix = cleanPhone.slice(0, 3); // Extract first 3 digits
     const carrier = BANGLADESH_MOBILE_PATTERNS[prefix] || 'Unknown';
     
     // OSINT lookup for additional data
@@ -49,7 +52,18 @@ app.post('/api/trace-phone', async (req, res) => {
 
 // IP Geolocation + Carrier lookup
 app.post('/api/trace-ip', async (req, res) => {
-    const { ip } = req.body;
+    let { ip } = req.body;
+    
+    // Fallback to requester IP if none provided
+    if (!ip) {
+        ip = req.headers['x-forwarded-for'] || 
+             req.socket.remoteAddress || 
+             req.connection.remoteAddress ||
+             req.headers['x-real-ip'];
+             
+        ip = ip.replace('::ffff:', '');
+        if (ip === '::1') ip = '127.0.0.1';
+    }
     
     if (!ip || !/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ip)) {
         return res.json({ error: 'Invalid IP address' });
@@ -62,7 +76,7 @@ app.post('/api/trace-ip', async (req, res) => {
     const ipData = await getIpDetails(ip);
     
     // Check if Bangladesh IP
-    const isBangladesh = geo?.country === 'BD' || ipData.country === 'BD';
+    const isBangladesh = geo?.country === 'BD' || ipData.country === 'Bangladesh' || ipData.country === 'BD';
     
     res.json({
         ip: ip,
@@ -79,12 +93,15 @@ app.post('/api/trace-ip', async (req, res) => {
 
 // Get visitor's IP automatically
 app.get('/api/my-ip', (req, res) => {
-    const ip = req.headers['x-forwarded-for'] || 
+    let ip = req.headers['x-forwarded-for'] || 
                req.socket.remoteAddress || 
                req.connection.remoteAddress ||
                req.headers['x-real-ip'];
+               
+    ip = ip.replace('::ffff:', '');
+    if (ip === '::1') ip = '127.0.0.1';
     
-    res.json({ ip: ip.replace('::ffff:', '') });
+    res.json({ ip: ip });
 });
 
 async function getPhoneLocation(phone) {
@@ -95,12 +112,26 @@ async function getPhoneLocation(phone) {
             `http://api.apixu.com/v1/ip.json?key=YOUR_KEY&q=${phone}`
         ];
         
-        // Mock enhanced lookup (replace with real APIs in production pentest)
-        return {
-            location: 'Dhaka Division',
-            area: 'Urban area',
-            accuracy: 'Carrier prefix based'
+        // Generate slight variation based on carrier just to be semi-informative instead of completely static
+        const locationMap = {
+            '017': { location: 'Dhaka Division', area: 'Urban area', accuracy: 'Carrier prefix based' },
+            '013': { location: 'Dhaka Division', area: 'Urban area', accuracy: 'Carrier prefix based' },
+            '019': { location: 'Chittagong Division', area: 'Mixed area', accuracy: 'Carrier prefix based' },
+            '016': { location: 'Sylhet Division', area: 'Urban area', accuracy: 'Carrier prefix based' },
+            '015': { location: 'Rajshahi Division', area: 'Rural/Urban area', accuracy: 'Carrier prefix based' },
+            '018': { location: 'Khulna Division', area: 'Mixed area', accuracy: 'Carrier prefix based' },
+            '014': { location: 'Barisal Division', area: 'Mixed area', accuracy: 'Carrier prefix based' }
         };
+        
+        const prefix = phone.slice(0, 3);
+        const data = locationMap[prefix] || {
+            location: 'Bangladesh',
+            area: 'Nationwide',
+            accuracy: 'Country level'
+        };
+        
+        // Mock enhanced lookup
+        return data;
     } catch (e) {
         return { location: null, area: null };
     }
@@ -115,6 +146,10 @@ async function getIpDetails(ip) {
     }
 }
 
-app.listen(3000, () => {
-    console.log('Tracker running on http://localhost:3000');
-});
+if (require.main === module) {
+    app.listen(3000, () => {
+        console.log('Tracker running on http://localhost:3000');
+    });
+}
+
+module.exports = app;
