@@ -93,14 +93,26 @@ app.post('/api/trace-ip', async (req, res) => {
 });
 
 // Get visitor's IP automatically
-app.get('/api/my-ip', (req, res) => {
+app.get('/api/my-ip', async (req, res) => {
     let ip = req.headers['x-forwarded-for'] || 
                req.socket.remoteAddress || 
                req.connection.remoteAddress ||
                req.headers['x-real-ip'];
                
-    ip = ip.replace('::ffff:', '');
+    if (ip && ip.includes(',')) ip = ip.split(',')[0].trim();
+    ip = ip?.replace('::ffff:', '');
     if (ip === '::1') ip = '127.0.0.1';
+    
+    // If the tool is being tested locally, the IP will be a private LAN or localhost IP.
+    // Private IPs cannot be geolocated. We'll automatically resolve the true public IP so it "works" locally!
+    if (!ip || ip === '127.0.0.1' || ip.startsWith('10.') || ip.startsWith('192.168.')) {
+        try {
+            const response = await axios.get('https://api.ipify.org?format=json');
+            ip = response.data.ip;
+        } catch (e) {
+            // Keep local standard if ipify fails
+        }
+    }
     
     res.json({ ip: ip });
 });
